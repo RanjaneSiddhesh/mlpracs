@@ -1,0 +1,46 @@
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+
+# 1. Load built-in dataset
+data = sns.load_dataset("flights")  # passengers over months
+passengers = data['passengers'].values.reshape(-1, 1)
+
+# 2. Normalize and create sequences
+scaler = MinMaxScaler()
+scaled = scaler.fit_transform(passengers)
+
+X, y = [], []
+seq_len = 12
+for i in range(len(scaled) - seq_len):
+    X.append(scaled[i:i+seq_len])
+    y.append(scaled[i+seq_len])
+X, y = np.array(X), np.array(y)
+
+# 3. Build and train LSTM model
+model = Sequential([
+    LSTM(50, input_shape=(seq_len, 1)),
+    Dense(1)
+])
+model.compile(optimizer='adam', loss='mse')
+model.fit(X, y, epochs=50, verbose=0)
+
+# 4. Forecast next value
+last_seq = scaled[-seq_len:].reshape(1, seq_len, 1)
+next_val = model.predict(last_seq)
+next_val_real = scaler.inverse_transform(next_val)
+
+print("📈 Predicted passengers next month:", int(next_val_real[0][0]))
+
+# 5. Plot original and prediction
+plt.plot(data['passengers'], label="Actual")
+plt.axvline(x=len(data)-1, color='gray', linestyle='--')
+plt.scatter(len(data), next_val_real, color='red', label="Predicted")
+plt.title("Flight Passenger Forecast (LSTM)")
+plt.xlabel("Month Index")
+plt.ylabel("Passengers")
+plt.legend()
+plt.show()
